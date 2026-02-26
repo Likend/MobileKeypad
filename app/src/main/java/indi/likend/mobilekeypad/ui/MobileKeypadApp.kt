@@ -2,10 +2,13 @@ package indi.likend.mobilekeypad.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
+import android.content.Intent
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
-import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.IntRange
 import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
@@ -13,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -23,13 +27,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import indi.likend.mobilekeypad.BluetoothHidViewModel
 import indi.likend.mobilekeypad.model.ConnectionState
 import indi.likend.mobilekeypad.model.KeyDescriptor
 import indi.likend.mobilekeypad.model.KeypadLayout
@@ -59,25 +63,17 @@ fun MobileKeypadApp() {
             Manifest.permission.ACCESS_FINE_LOCATION
         )
     }
-    val permissionsState = rememberMultiplePermissionsState(permissionsToRequest) { isGranted ->
-        if (isGranted.all { it.value }) {
-            bluetoothHidViewModel.initBluetooth()
-        }
+    val permissionsState = rememberMultiplePermissionsState(permissionsToRequest)
+    LaunchedEffect(permissionsState.allPermissionsGranted) {
+        bluetoothHidViewModel.hasPermissionStateFlow.value = permissionsState.allPermissionsGranted
     }
 
-    val connectionState = if (!permissionsState.allPermissionsGranted) {
-        ConnectionState.PermissionRequire
-    } else {
-        bluetoothHidViewModel.connectionState
-    }
+    val connectionState by bluetoothHidViewModel.connectionStateFlow.collectAsStateWithLifecycle()
+    val lastConnectedDevice by bluetoothHidViewModel.lastConnectedDevice.collectAsStateWithLifecycle()
+    val pairedDevices by bluetoothHidViewModel.pairedDevices.collectAsStateWithLifecycle()
+    val availableDevices by bluetoothHidViewModel.availableDevices.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) {
-        if (permissionsState.allPermissionsGranted) {
-            bluetoothHidViewModel.initBluetooth()
-        }
-    }
     HandleUiEvent()
-    RegisterReceiver(bluetoothHidViewModel)
     RegisterHidApp(bluetoothHidViewModel)
 
     MobileKeypadTheme {
@@ -94,35 +90,55 @@ fun MobileKeypadApp() {
                     bluetoothHidViewModel.onKeyDown(prefixCode)
                     bluetoothHidViewModel.onKeyUp(prefixCode)
                 }
+                val enableBluetoothLauncher =
+                    rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
                 HomeScreen(
                     navController = navController,
                     connectionState = connectionState,
                     onClickConnectionButton = {
                         when (connectionState) {
                             is ConnectionState.PermissionRequire -> permissionsState.launchMultiplePermissionRequest()
+
+                            is ConnectionState.BluetoothUnsupported -> Unit
+
+                            is ConnectionState.BluetoothTurnedOff -> enableBluetoothLauncher.launch(
+                                Intent(
+                                    BluetoothAdapter.ACTION_REQUEST_ENABLE
+                                )
+                            )
+
                             else -> navController.navigate(Route.Connection)
                         }
                     },
                     selectedTab = selectedTab,
                     onSelectedTab = onChangeSelectedTab,
-                    keypadLayouts = keypadLayouts(bluetoothHidViewModel, onChangeSelectedTab)
+                    keypadLayouts = keypadLayouts(
+                        onKeyDown = bluetoothHidViewModel::onKeyDown,
+                        onKeyUp = bluetoothHidViewModel::onKeyUp,
+                        onChangeTabIndex = onChangeSelectedTab
+                    )
                 )
             }
             composable<Route.Settings> {
                 MainSettingScreen()
             }
             composable<Route.Connection> {
-                ConnectionScreen(
-                    connectionState = connectionState,
-                    lastConnectedDevice = bluetoothHidViewModel.lastConnectedDevice,
-                    pairedDevices = bluetoothHidViewModel.pairedDevices,
-                    availableDevices = bluetoothHidViewModel.availableDevices,
-                    onConnectDevice = { device -> bluetoothHidViewModel.connect(device) },
-                    disposableEffect = {
-                        bluetoothHidViewModel.startScanning()
-                        onDispose { bluetoothHidViewModel.stopScanning() }
-                    }
-                )
+                val state = connectionState
+                if (state is ConnectionState.Valid) {
+                    ConnectionScreen(
+                        connectionState = state,
+                        lastConnectedDevice = lastConnectedDevice,
+                        pairedDevices = pairedDevices,
+                        availableDevices = availableDevices,
+                        onConnectDevice = { device -> bluetoothHidViewModel.connect(device) },
+                        disposableEffect = {
+                            bluetoothHidViewModel.startScanning()
+                            onDispose { bluetoothHidViewModel.stopScanning() }
+                        }
+                    )
+                } else { // 可以在这里处理错误状态，或者自动返回上一页
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                }
             }
         }
     }
@@ -157,7 +173,7 @@ private fun RegisterHidApp(bluetoothHidViewModel: BluetoothHidViewModel) {
                     Log.d("HID", "应用回到前台")
                     bluetoothHidViewModel.registerHidApp {
                         // 实现自动续连
-                        bluetoothHidViewModel.lastConnectedDevice?.let { bluetoothHidViewModel.connect(it) }
+                        bluetoothHidViewModel.lastConnectedDevice.value?.let { bluetoothHidViewModel.connect(it) }
                     }
                 }
 
@@ -173,20 +189,9 @@ private fun RegisterHidApp(bluetoothHidViewModel: BluetoothHidViewModel) {
     }
 }
 
-@Composable
-private fun RegisterReceiver(bluetoothHidViewModel: BluetoothHidViewModel) {
-    val activity = LocalActivity.current
-    DisposableEffect(Unit) {
-        require(activity != null)
-        bluetoothHidViewModel.registerReceiver(activity)
-        onDispose {
-            bluetoothHidViewModel.unregisterReceiver(activity)
-        }
-    }
-}
-
 private fun keypadLayout(
-    bluetoothHidViewModel: BluetoothHidViewModel,
+    onKeyDown: (Int) -> Unit,
+    onKeyUp: (Int) -> Unit,
     @IntRange(0, 5) tabIndex: Int,
     onChangeTabIndex: (Int) -> Unit
 ): KeypadLayout {
@@ -198,14 +203,14 @@ private fun keypadLayout(
 
         @SuppressLint("MissingPermission")
         override fun pressDown() {
-            bluetoothHidViewModel.onKeyDown(prefixCode)
-            bluetoothHidViewModel.onKeyDown(scanCode)
+            onKeyDown(prefixCode)
+            onKeyDown(scanCode)
         }
 
         @SuppressLint("MissingPermission")
         override fun pressUp() {
-            bluetoothHidViewModel.onKeyUp(prefixCode)
-            bluetoothHidViewModel.onKeyUp(scanCode)
+            onKeyUp(prefixCode)
+            onKeyUp(scanCode)
         }
     }
 
@@ -243,11 +248,11 @@ private fun keypadLayout(
     }
 }
 
-private fun keypadLayouts(bluetoothHidViewModel: BluetoothHidViewModel, onChangeTabIndex: (Int) -> Unit) = listOf(
-    Pair("1", keypadLayout(bluetoothHidViewModel, 0, onChangeTabIndex)),
-    Pair("2", keypadLayout(bluetoothHidViewModel, 1, onChangeTabIndex)),
-    Pair("3", keypadLayout(bluetoothHidViewModel, 2, onChangeTabIndex)),
-    Pair("4", keypadLayout(bluetoothHidViewModel, 3, onChangeTabIndex)),
-    Pair("5", keypadLayout(bluetoothHidViewModel, 4, onChangeTabIndex)),
-    Pair("6", keypadLayout(bluetoothHidViewModel, 5, onChangeTabIndex))
+private fun keypadLayouts(onKeyDown: (Int) -> Unit, onKeyUp: (Int) -> Unit, onChangeTabIndex: (Int) -> Unit) = listOf(
+    Pair("1", keypadLayout(onKeyDown, onKeyUp, 0, onChangeTabIndex)),
+    Pair("2", keypadLayout(onKeyDown, onKeyUp, 1, onChangeTabIndex)),
+    Pair("3", keypadLayout(onKeyDown, onKeyUp, 2, onChangeTabIndex)),
+    Pair("4", keypadLayout(onKeyDown, onKeyUp, 3, onChangeTabIndex)),
+    Pair("5", keypadLayout(onKeyDown, onKeyUp, 4, onChangeTabIndex)),
+    Pair("6", keypadLayout(onKeyDown, onKeyUp, 5, onChangeTabIndex))
 )

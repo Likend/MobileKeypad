@@ -3,17 +3,19 @@
     <string name="app_name">Mobile Keypad</string>
     <string name="settings_heading">设置</string>
     <string name="connection_heading">连接</string>
+    <string name="connection_bluetooth_unsupported">设备不支持蓝牙</string>
+    <string name="connection_bluetooth_turn_on">打开蓝牙</string>
     <string name="connection_state_connecting" tools:ignore="TypographyEllipsis">连接中...</string>
     <string name="connection_unconnected">未连接</string>
-    <string name="permission_required">授予权限</string>
+    <string name="connection_permission_require">授予权限</string>
     <string name="connection_connected_to_device">已连接到 %s</string>
     <string name="connection_connected_description">可以开始了</string>
-    <string name="connection_connected_to_device_failed">连接设备 %s 失败</string>
+    <string name="connection_connect_to_device_failed">连接设备 %s 失败</string>
     <string name="connection_unconnected_description">请选择下方设备进行连接</string>
     <string name="connection_not_found">未找到可配对设备</string>
     <string name="connection_history_records">历史记录</string>
     <string name="connection_paired_devices">已配对设备</string>
     <string name="connection_available_devices">可用设备</string>
-    <string name="connection_connected_to_device_success">连接设备 %s 成功</string>
+    <string name="connection_connect_to_device_success">连接设备 %s 成功</string>
     <string name="key_report_sent_failed">键盘报告发送失败</string>
 </resources>

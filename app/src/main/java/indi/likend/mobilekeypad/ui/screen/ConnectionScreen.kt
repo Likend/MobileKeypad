@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Laptop
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -43,13 +44,14 @@ import indi.likend.mobilekeypad.model.BluetoothDeviceState
 import indi.likend.mobilekeypad.model.ConnectionState
 import indi.likend.mobilekeypad.ui.component.CostumeScaffold
 import indi.likend.mobilekeypad.ui.previewDevice
+import indi.likend.mobilekeypad.ui.theme.CostumeColorScheme
 import indi.likend.mobilekeypad.ui.theme.MobileKeypadTheme
 import kotlin.collections.listOf
 
 @SuppressLint("MissingPermission")
 @Composable
 fun ConnectionScreen(
-    connectionState: ConnectionState,
+    connectionState: ConnectionState.Valid,
     lastConnectedDevice: BluetoothDeviceState? = null,
     pairedDevices: List<BluetoothDeviceState> = emptyList(),
     availableDevices: List<BluetoothDeviceState> = emptyList(),
@@ -166,7 +168,7 @@ fun PreviewConnectionScreenConnecting() {
 }
 
 @Composable
-fun StatusCard(connectionState: ConnectionState) {
+fun StatusCard(connectionState: ConnectionState.Valid) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -178,38 +180,13 @@ fun StatusCard(connectionState: ConnectionState) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = if (connectionState is ConnectionState.Connected) {
-                    Icons.Default.CheckCircle
-                } else {
-                    Icons.Default.Bluetooth
-                },
+                imageVector = connectionState.iconVector,
                 contentDescription = null,
                 tint = LocalContentColor.current.copy(alpha = 0.7f)
             )
             Column(modifier = Modifier.padding(start = 12.dp)) {
-                val statusText = when (connectionState) {
-                    is ConnectionState.Connected ->
-                        stringResource(
-                            R.string.connection_connected_to_device,
-                            connectionState.device.name
-                        )
-
-                    is ConnectionState.Connecting,
-                    is ConnectionState.Unconnected -> connectionState.text
-
-                    else -> ""
-                }
-                Text(text = statusText, fontWeight = FontWeight.Medium)
-                Text(
-                    text = stringResource(
-                        if (connectionState is ConnectionState.Connected) {
-                            R.string.connection_connected_description
-                        } else {
-                            R.string.connection_unconnected_description
-                        }
-                    ),
-                    fontSize = 12.sp
-                )
+                Text(text = connectionState.statusText, fontWeight = FontWeight.Medium)
+                Text(text = connectionState.descriptionText, fontSize = 12.sp)
             }
         }
     }
@@ -260,7 +237,11 @@ fun DeviceRow(device: BluetoothDeviceState, isConnected: Boolean, onClick: () ->
                 contentDescription = null,
                 tint = contentColor.copy(alpha = 0.7f)
             )
-            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp)
+            ) {
                 Text(
                     text = device.name,
                     color = contentColor,
@@ -290,5 +271,41 @@ private val BluetoothClass.iconVector
         BluetoothClass.Device.Major.AUDIO_VIDEO -> Icons.Default.Headset
         BluetoothClass.Device.Major.PERIPHERAL -> Icons.Default.Keyboard
         BluetoothClass.Device.Major.WEARABLE -> Icons.Default.Watch
+        else -> Icons.Default.Bluetooth
+    }
+
+private val ConnectionState.Valid.cardColors
+    @Composable get() = when (this) {
+        is ConnectionState.Connected -> CardDefaults.cardColors(
+            containerColor = CostumeColorScheme.successContainer,
+            contentColor = CostumeColorScheme.onSuccessContainer
+        )
+
+        is ConnectionState.Connecting -> CardDefaults.cardColors(
+            containerColor = CostumeColorScheme.warningContainer,
+            contentColor = CostumeColorScheme.onWarningContainer
+        )
+
+        is ConnectionState.Unconnected -> CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    }
+
+private val ConnectionState.Valid.statusText
+    @Composable get() = when (this) {
+        is ConnectionState.Connected -> stringResource(R.string.connection_connected_to_device, device.name)
+        is ConnectionState.Connecting -> stringResource(R.string.connection_state_connecting)
+        is ConnectionState.Unconnected -> stringResource(R.string.connection_unconnected)
+    }
+
+private val ConnectionState.Valid.descriptionText
+    @Composable get() = when (this) {
+        is ConnectionState.Connected -> stringResource(R.string.connection_connected_description)
+        else -> stringResource(R.string.connection_unconnected_description)
+    }
+
+private val ConnectionState.Valid.iconVector
+    get() = when (this) {
+        is ConnectionState.Connected -> Icons.Default.CheckCircle
         else -> Icons.Default.Bluetooth
     }

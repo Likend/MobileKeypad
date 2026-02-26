@@ -1,12 +1,14 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Mobile Keypad</string>
     <string name="settings_heading">Settings</string>
-    <string name="permission_required">Permission required</string>
+    <string name="connection_permission_require">Permission require</string>
+    <string name="connection_bluetooth_unsupported">Bluetooth unsupported</string>
+    <string name="connection_bluetooth_turn_on">Turn on bluetooth</string>
     <string name="connection_state_connecting" tools:ignore="TypographyEllipsis">Connecting...</string>
     <string name="connection_unconnected">Unconnected</string>
     <string name="connection_connected_to_device">Connected to %s</string>
-    <string name="connection_connected_to_device_success">Connected to %s successfully</string>
-    <string name="connection_connected_to_device_failed">Connected to %s failed</string>
+    <string name="connection_connect_to_device_success">Connect to %s successfully</string>
+    <string name="connection_connect_to_device_failed">Connect to %s failed</string>
     <string name="connection_unconnected_description">Select a device below to connect</string>
     <string name="connection_connected_description">Everything is OK</string>
     <string name="connection_heading">Connection</string>

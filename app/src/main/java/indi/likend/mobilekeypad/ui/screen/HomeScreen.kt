@@ -20,8 +20,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BluetoothDisabled
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -156,7 +162,7 @@ private fun HomeScreenTopBar(
                 ) {
                     Icon(connectionState.iconVector, null, Modifier.size(18.dp))
                     Text(
-                        text = connectionState.text,
+                        text = connectionState.buttonText,
                         maxLines = 1,
                         overflow = TextOverflow.MiddleEllipsis,
                         // fill = false 确保短文本时按钮收缩，长文本时才占据 Box 全宽
@@ -218,3 +224,43 @@ private fun PreviewHomeScreenConnected() {
 private fun PreviewHomeScreenPermissionRequire() {
     PreviewHomeScreenTemplate(ConnectionState.PermissionRequire)
 }
+
+private val ConnectionState.iconVector
+    get() = when (this) {
+        is ConnectionState.Connected -> Icons.Default.Link
+
+        is ConnectionState.Connecting,
+        is ConnectionState.Unconnected -> Icons.Default.LinkOff
+
+        is ConnectionState.PermissionRequire -> Icons.Default.Warning
+
+        is ConnectionState.BluetoothUnsupported,
+        is ConnectionState.BluetoothTurnedOff -> Icons.Default.BluetoothDisabled
+    }
+
+private val ConnectionState.buttonColors
+    @Composable get() = when (this) {
+        is ConnectionState.Connected -> ButtonDefaults.filledTonalButtonColors()
+
+        is ConnectionState.Connecting,
+        is ConnectionState.Unconnected -> ButtonDefaults.buttonColors()
+
+        is ConnectionState.PermissionRequire,
+        is ConnectionState.BluetoothUnsupported,
+        is ConnectionState.BluetoothTurnedOff -> ButtonColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+            disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        )
+    }
+
+private val ConnectionState.buttonText
+    @Composable get() = when (this) {
+        is ConnectionState.Connected -> device.name
+        is ConnectionState.Connecting -> stringResource(R.string.connection_state_connecting)
+        is ConnectionState.Unconnected -> stringResource(R.string.connection_unconnected)
+        is ConnectionState.PermissionRequire -> stringResource(R.string.connection_permission_require)
+        is ConnectionState.BluetoothUnsupported -> stringResource(R.string.connection_bluetooth_unsupported)
+        is ConnectionState.BluetoothTurnedOff -> stringResource(R.string.connection_bluetooth_turn_on)
+    }
