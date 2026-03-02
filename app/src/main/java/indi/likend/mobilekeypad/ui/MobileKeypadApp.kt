@@ -2,6 +2,7 @@ package indi.likend.mobilekeypad.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.os.Build
@@ -16,7 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -63,10 +63,21 @@ fun MobileKeypadApp() {
             Manifest.permission.ACCESS_FINE_LOCATION
         )
     }
-    val permissionsState = rememberMultiplePermissionsState(permissionsToRequest)
+    val permissionsState = rememberMultiplePermissionsState(permissionsToRequest) { result ->
+        if (result.map { it.value }.all { it }) {
+            navController.navigate(Route.Connection)
+        }
+    }
     LaunchedEffect(permissionsState.allPermissionsGranted) {
         bluetoothHidViewModel.hasPermissionStateFlow.value = permissionsState.allPermissionsGranted
     }
+
+    val enableBluetoothLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                navController.navigate(Route.Connection)
+            }
+        }
 
     val connectionState by bluetoothHidViewModel.connectionStateFlow.collectAsStateWithLifecycle()
     val lastConnectedDevice by bluetoothHidViewModel.lastConnectedDevice.collectAsStateWithLifecycle()
@@ -90,8 +101,7 @@ fun MobileKeypadApp() {
                     bluetoothHidViewModel.onKeyDown(prefixCode)
                     bluetoothHidViewModel.onKeyUp(prefixCode)
                 }
-                val enableBluetoothLauncher =
-                    rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
+
                 HomeScreen(
                     navController = navController,
                     connectionState = connectionState,
@@ -107,7 +117,7 @@ fun MobileKeypadApp() {
                                 )
                             )
 
-                            else -> navController.navigate(Route.Connection)
+                            is ConnectionState.Valid -> navController.navigate(Route.Connection)
                         }
                     },
                     selectedTab = selectedTab,

@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class BluetoothHidViewModel(application: Application) : AndroidViewModel(application) {
@@ -77,7 +78,7 @@ class BluetoothHidViewModel(application: Application) : AndroidViewModel(applica
     private var hidDevice: BluetoothHidDevice? = null
 
     private val adapter: BluetoothAdapter?
-        inline get() {
+        get() {
             val context = getApplication<Application>()
             val manager = ContextCompat.getSystemService(context, BluetoothManager::class.java)
             return manager?.adapter
@@ -93,8 +94,13 @@ class BluetoothHidViewModel(application: Application) : AndroidViewModel(applica
         @SuppressLint("MissingPermission")
         viewModelScope.launch {
             bluetoothDeviceFoundFlow(getApplication<Application>().applicationContext).collect { event ->
-                if (!_availableDevices.value.any { d -> d.address == event.device.address }) {
-                    _availableDevices.value += event.device.toState()
+                _availableDevices.update { currentList ->
+                    val index = currentList.indexOfFirst { it.address == event.device.address }
+                    if (index != -1) {
+                        currentList.toMutableList().apply { this[index] = event.device.toState() }
+                    } else {
+                        currentList + event.device.toState()
+                    }
                 }
             }
         }
@@ -144,8 +150,8 @@ class BluetoothHidViewModel(application: Application) : AndroidViewModel(applica
     fun destroyBluetooth() {
         hidDevice?.let {
             adapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, it)
+            hidDevice = null
         }
-        hidDevice = null
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
