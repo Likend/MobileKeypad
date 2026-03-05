@@ -48,9 +48,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import indi.likend.mobilekeypad.R
-import indi.likend.mobilekeypad.model.ConnectionState
-import indi.likend.mobilekeypad.model.KeypadLayout
+import indi.likend.mobilekeypad.ui.ConnectionState
 import indi.likend.mobilekeypad.ui.DeviceResponsivePreviews
+import indi.likend.mobilekeypad.ui.KeypadLayout
 import indi.likend.mobilekeypad.ui.Route
 import indi.likend.mobilekeypad.ui.component.Keypad
 import indi.likend.mobilekeypad.ui.previewDevice

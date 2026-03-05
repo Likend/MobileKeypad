@@ -1,11 +1,8 @@
 package indi.likend.mobilekeypad.ui.component
 
-import android.R.attr.maxHeight
-import android.R.attr.maxWidth
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,13 +14,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import indi.likend.mobilekeypad.model.KeyDescriptor
-import indi.likend.mobilekeypad.model.KeypadLayout
+import indi.likend.mobilekeypad.ui.KeyDescriptor
+import indi.likend.mobilekeypad.ui.KeypadLayout
 import indi.likend.mobilekeypad.ui.previewKeypadLayout
 
 /**

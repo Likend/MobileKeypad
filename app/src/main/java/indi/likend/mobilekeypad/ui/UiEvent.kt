@@ -1,4 +1,4 @@
-package indi.likend.mobilekeypad.utils
+package indi.likend.mobilekeypad.ui
 
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow

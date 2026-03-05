@@ -1,7 +1,6 @@
 package indi.likend.mobilekeypad.ui.screen
 
 import android.annotation.SuppressLint
-import android.bluetooth.BluetoothClass
 import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
@@ -40,22 +39,22 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import indi.likend.mobilekeypad.R
-import indi.likend.mobilekeypad.model.BluetoothDeviceState
-import indi.likend.mobilekeypad.model.ConnectionState
+import indi.likend.mobilekeypad.domain.model.BluetoothDevice
+import indi.likend.mobilekeypad.domain.model.BluetoothDeviceType
+import indi.likend.mobilekeypad.ui.ConnectionState
 import indi.likend.mobilekeypad.ui.component.CostumeScaffold
 import indi.likend.mobilekeypad.ui.previewDevice
 import indi.likend.mobilekeypad.ui.theme.CostumeColorScheme
 import indi.likend.mobilekeypad.ui.theme.MobileKeypadTheme
-import kotlin.collections.listOf
 
 @SuppressLint("MissingPermission")
 @Composable
 fun ConnectionScreen(
     connectionState: ConnectionState.Valid,
-    lastConnectedDevice: BluetoothDeviceState? = null,
-    pairedDevices: List<BluetoothDeviceState> = emptyList(),
-    availableDevices: List<BluetoothDeviceState> = emptyList(),
-    onConnectDevice: (BluetoothDeviceState) -> Unit = {},
+    lastConnectedDevice: BluetoothDevice? = null,
+    pairedDevices: List<BluetoothDevice> = emptyList(),
+    availableDevices: List<BluetoothDevice> = emptyList(),
+    onConnectDevice: (BluetoothDevice) -> Unit = {},
     disposableEffect: DisposableEffectScope.() -> DisposableEffectResult = { onDispose { } }
 ) {
     DisposableEffect(Unit) { disposableEffect() }
@@ -214,7 +213,7 @@ private fun PreviewStatusCardConnected() {
 }
 
 @Composable
-fun DeviceRow(device: BluetoothDeviceState, isConnected: Boolean, onClick: () -> Unit) {
+fun DeviceRow(device: BluetoothDevice, isConnected: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = MaterialTheme.shapes.medium,
@@ -233,7 +232,7 @@ fun DeviceRow(device: BluetoothDeviceState, isConnected: Boolean, onClick: () ->
                 LocalContentColor.current
             }
             Icon(
-                imageVector = device.bluetoothClass.iconVector,
+                imageVector = device.deviceType.iconVector,
                 contentDescription = null,
                 tint = contentColor.copy(alpha = 0.7f)
             )
@@ -264,13 +263,13 @@ fun DeviceRow(device: BluetoothDeviceState, isConnected: Boolean, onClick: () ->
     }
 }
 
-private val BluetoothClass.iconVector
-    get() = when (majorDeviceClass) {
-        BluetoothClass.Device.Major.COMPUTER -> Icons.Default.Laptop
-        BluetoothClass.Device.Major.PHONE -> Icons.Default.Smartphone
-        BluetoothClass.Device.Major.AUDIO_VIDEO -> Icons.Default.Headset
-        BluetoothClass.Device.Major.PERIPHERAL -> Icons.Default.Keyboard
-        BluetoothClass.Device.Major.WEARABLE -> Icons.Default.Watch
+private val BluetoothDeviceType.iconVector
+    get() = when (this) {
+        BluetoothDeviceType.COMPUTER -> Icons.Default.Laptop
+        BluetoothDeviceType.PHONE -> Icons.Default.Smartphone
+        BluetoothDeviceType.AUDIO_VIDEO -> Icons.Default.Headset
+        BluetoothDeviceType.PERIPHERAL -> Icons.Default.Keyboard
+        BluetoothDeviceType.WEARABLE -> Icons.Default.Watch
         else -> Icons.Default.Bluetooth
     }
 

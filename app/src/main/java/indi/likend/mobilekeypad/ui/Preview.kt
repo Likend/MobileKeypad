@@ -1,14 +1,12 @@
 package indi.likend.mobilekeypad.ui
 
-import android.bluetooth.BluetoothClass
 import androidx.annotation.IntRange
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
-import indi.likend.mobilekeypad.model.BluetoothDeviceState
-import indi.likend.mobilekeypad.model.KeyDescriptor
-import indi.likend.mobilekeypad.model.KeypadLayout
+import indi.likend.mobilekeypad.domain.model.BluetoothDevice
+import indi.likend.mobilekeypad.domain.model.BluetoothDeviceType
 
 private fun previewKeyDescriptor(text: String): KeyDescriptor = object : KeyDescriptor {
     override val content: @Composable (() -> Unit)
@@ -35,14 +33,8 @@ val previewKeypadLayouts = listOf(
     Pair("5", previewKeypadLayout)
 )
 
-private fun createMockBluetoothClass(classInt: Int): BluetoothClass {
-    val constructor = BluetoothClass::class.java.getDeclaredConstructor(Int::class.javaPrimitiveType)
-    constructor.isAccessible = true
-    return constructor.newInstance(classInt) as BluetoothClass
-}
-
 val previewDevice =
-    BluetoothDeviceState(name = "LAPTOP-A12BC3D4", address = "AA:BB:CC:DD:EE:FF", createMockBluetoothClass(0x010C))
+    BluetoothDevice(name = "LAPTOP-A12BC3D4", address = "AA:BB:CC:DD:EE:FF", BluetoothDeviceType.COMPUTER)
 
 @Repeatable // 允许在同一个地方多次使用（虽然通常不需要）
 @Preview(

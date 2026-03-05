@@ -1,12 +1,9 @@
 package indi.likend.mobilekeypad.ui
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
-import android.os.Build
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,7 +12,6 @@ import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -24,52 +20,31 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import indi.likend.mobilekeypad.model.ConnectionState
-import indi.likend.mobilekeypad.model.KeyDescriptor
-import indi.likend.mobilekeypad.model.KeypadLayout
 import indi.likend.mobilekeypad.ui.screen.ConnectionScreen
 import indi.likend.mobilekeypad.ui.screen.HomeScreen
 import indi.likend.mobilekeypad.ui.screen.settings.MainSettingScreen
 import indi.likend.mobilekeypad.ui.theme.MobileKeypadTheme
-import indi.likend.mobilekeypad.utils.UiEvent
-import indi.likend.mobilekeypad.utils.UiEventManager
 
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun MobileKeypadApp() {
+fun MobileKeypadApp(viewModel: MobileKeypadAppViewModel = hiltViewModel()) {
     val navController = rememberNavController()
-    val bluetoothHidViewModel = viewModel<BluetoothHidViewModel>()
 
-    val permissionsToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        // Android 12+ 需要扫描和连接权限
-        listOf(
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.BLUETOOTH_CONNECT
-        )
-    } else {
-        // Android 11 及以下需要位置权限才能扫描蓝牙
-        listOf(
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
-    }
-    val permissionsState = rememberMultiplePermissionsState(permissionsToRequest) { result ->
+    val permissionsState = rememberMultiplePermissionsState(MobileKeypadAppViewModel.permissionsToRequest) { result ->
         if (result.map { it.value }.all { it }) {
             navController.navigate(Route.Connection)
         }
     }
     LaunchedEffect(permissionsState.allPermissionsGranted) {
-        bluetoothHidViewModel.hasPermissionStateFlow.value = permissionsState.allPermissionsGranted
+        viewModel.hasPermissionStateFlow.value = permissionsState.allPermissionsGranted
     }
 
     val enableBluetoothLauncher =
@@ -79,13 +54,12 @@ fun MobileKeypadApp() {
             }
         }
 
-    val connectionState by bluetoothHidViewModel.connectionStateFlow.collectAsStateWithLifecycle()
-    val lastConnectedDevice by bluetoothHidViewModel.lastConnectedDevice.collectAsStateWithLifecycle()
-    val pairedDevices by bluetoothHidViewModel.pairedDevices.collectAsStateWithLifecycle()
-    val availableDevices by bluetoothHidViewModel.availableDevices.collectAsStateWithLifecycle()
+    val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
+    val lastConnectedDevice by viewModel.lastConnectedDevice.collectAsStateWithLifecycle()
+    val pairedDevices by viewModel.pairedDevices.collectAsStateWithLifecycle()
+    val availableDevices by viewModel.availableDevices.collectAsStateWithLifecycle()
 
     HandleUiEvent()
-    RegisterHidApp(bluetoothHidViewModel)
 
     MobileKeypadTheme {
         NavHost(
@@ -98,8 +72,8 @@ fun MobileKeypadApp() {
                 val onChangeSelectedTab: (Int) -> Unit = { tabIndex ->
                     selectedTab = tabIndex
                     val prefixCode = 64 + tabIndex
-                    bluetoothHidViewModel.onKeyDown(prefixCode)
-                    bluetoothHidViewModel.onKeyUp(prefixCode)
+                    viewModel.onKeyDown(prefixCode)
+                    viewModel.onKeyUp(prefixCode)
                 }
 
                 HomeScreen(
@@ -112,9 +86,7 @@ fun MobileKeypadApp() {
                             is ConnectionState.BluetoothUnsupported -> Unit
 
                             is ConnectionState.BluetoothTurnedOff -> enableBluetoothLauncher.launch(
-                                Intent(
-                                    BluetoothAdapter.ACTION_REQUEST_ENABLE
-                                )
+                                Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
                             )
 
                             is ConnectionState.Valid -> navController.navigate(Route.Connection)
@@ -123,8 +95,8 @@ fun MobileKeypadApp() {
                     selectedTab = selectedTab,
                     onSelectedTab = onChangeSelectedTab,
                     keypadLayouts = keypadLayouts(
-                        onKeyDown = bluetoothHidViewModel::onKeyDown,
-                        onKeyUp = bluetoothHidViewModel::onKeyUp,
+                        onKeyDown = viewModel::onKeyDown,
+                        onKeyUp = viewModel::onKeyUp,
                         onChangeTabIndex = onChangeSelectedTab
                     )
                 )
@@ -140,10 +112,10 @@ fun MobileKeypadApp() {
                         lastConnectedDevice = lastConnectedDevice,
                         pairedDevices = pairedDevices,
                         availableDevices = availableDevices,
-                        onConnectDevice = { device -> bluetoothHidViewModel.connect(device) },
+                        onConnectDevice = { device -> viewModel.connect(device) },
                         disposableEffect = {
-                            bluetoothHidViewModel.startScanning()
-                            onDispose { bluetoothHidViewModel.stopScanning() }
+                            viewModel.startScanning()
+                            onDispose { viewModel.stopScanning() }
                         }
                     )
                 } else { // 可以在这里处理错误状态，或者自动返回上一页
@@ -162,39 +134,6 @@ private fun HandleUiEvent() {
             when (event) {
                 is UiEvent.ShowToast -> Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
             }
-        }
-    }
-}
-
-@SuppressLint("MissingPermission")
-@Composable
-private fun RegisterHidApp(bluetoothHidViewModel: BluetoothHidViewModel) {
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_STOP -> {
-                    Log.d("HID", "应用切到后台")
-                    bluetoothHidViewModel.connectedDevice?.let { bluetoothHidViewModel.disconnect(it) }
-                    bluetoothHidViewModel.unregisterHidApp()
-                }
-
-                Lifecycle.Event.ON_RESUME -> {
-                    Log.d("HID", "应用回到前台")
-                    bluetoothHidViewModel.registerHidApp {
-                        // 实现自动续连
-                        bluetoothHidViewModel.lastConnectedDevice.value?.let { bluetoothHidViewModel.connect(it) }
-                    }
-                }
-
-                else -> {}
-            }
-        }
-
-        lifecycleOwner.lifecycle.addObserver(observer)
-
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 }

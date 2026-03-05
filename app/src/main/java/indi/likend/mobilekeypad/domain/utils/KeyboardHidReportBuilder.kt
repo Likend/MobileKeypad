@@ -1,4 +1,4 @@
-package indi.likend.mobilekeypad.utils
+package indi.likend.mobilekeypad.domain.utils
 
 class KeyboardHidReportBuilder {
     private val pressedKeys = LinkedHashSet<Int>(6)

@@ -1,4 +1,4 @@
-package indi.likend.mobilekeypad.model
+package indi.likend.mobilekeypad.ui
 
 import androidx.compose.runtime.Composable
 
