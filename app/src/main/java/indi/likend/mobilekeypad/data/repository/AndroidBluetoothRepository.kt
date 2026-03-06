@@ -7,7 +7,6 @@ import android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED
 import android.bluetooth.BluetoothDevice.ACTION_BOND_STATE_CHANGED
 import android.bluetooth.BluetoothHidDevice
 import android.bluetooth.BluetoothHidDeviceAppSdpSettings
-import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -16,6 +15,7 @@ import android.util.Log
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import indi.likend.mobilekeypad.data.model.AndroidBluetoothConnectSession
 import indi.likend.mobilekeypad.data.model.AndroidBluetoothDevice
 import indi.likend.mobilekeypad.data.model.AndroidBluetoothScanSession
 import indi.likend.mobilekeypad.data.utils.ActivityStateMonitor
@@ -37,11 +37,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -52,6 +50,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -109,34 +108,41 @@ class AndroidBluetoothRepository @Inject constructor(
     override val isBluetoothEnable: StateFlow<Boolean> =
         bluetoothEventsFlow.filterIsInstance<BluetoothEvent.AdapterStateChanged>()
             .filter { event -> event.state == BluetoothAdapter.STATE_ON || event.state == BluetoothAdapter.STATE_OFF }
-            .map { event -> event.state == BluetoothAdapter.STATE_ON }
-            .stateIn(
+            .map { event -> event.state == BluetoothAdapter.STATE_ON }.stateIn(
                 scope = coroutineScope,
                 started = SharingStarted.Eagerly,
                 initialValue = adapter.isEnabled
             )
 
     @SuppressLint("MissingPermission")
-    override fun startScan(): BluetoothScanSession = AndroidBluetoothScanSession(context, coroutineScope, adapter)
+    override fun startScan(): BluetoothScanSession =
+        AndroidBluetoothScanSession(context = context, coroutineScope = coroutineScope, adapter = adapter)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val hidDeviceFlow: SharedFlow<BluetoothHidDevice?> = isBluetoothEnable.filter { it }.flatMapLatest {
-        Log.d(TAG, "hidDeviceFlow flatMapLatest get update")
-        adapter.getProfileProxyFlow<BluetoothHidDevice>(context)
-            .catch { e -> Log.e(TAG, "getProfileProxyFlow error", e) }
-    }.shareIn(
-        scope = coroutineScope,
-        started = SharingStarted.Eagerly,
-        replay = 1
-    )
+    private val hidDeviceFlow: SharedFlow<BluetoothHidDevice?> =
+        isBluetoothEnable.filter { it }
+            .flatMapLatest {
+                Log.d(TAG, "hidDeviceFlow flatMapLatest get update")
+                adapter.getProfileProxyFlow<BluetoothHidDevice>(context)
+                    .catch { e -> Log.e(TAG, "getProfileProxyFlow error", e) }
+            }
+            .onEach { Log.d(TAG, "hidDeviceFlow $it") }
+            .shareIn(
+                scope = coroutineScope,
+                started = SharingStarted.Eagerly,
+                replay = 1
+            )
 
     private val hidAppRegister = HidAppRegister(sdp = SDP_SETTINGS)
     private var hidAppSession: HidAppSession? = null
 
-    private val hidEventsFlow: SharedFlow<BluetoothHidDeviceEvent> = hidAppRegister.events.shareIn(
-        scope = coroutineScope,
-        started = SharingStarted.Eagerly
-    )
+    private val hidEventsFlow: SharedFlow<BluetoothHidDeviceEvent> =
+        hidAppRegister.events
+            .onEach { Log.d(TAG, "hidEventsFlow $it") }
+            .shareIn(
+                scope = coroutineScope,
+                started = SharingStarted.Eagerly
+            )
 
     private val isRegistered =
         hidEventsFlow.filterIsInstance<BluetoothHidDeviceEvent.AppStatusChanged>()
@@ -148,6 +154,7 @@ class AndroidBluetoothRepository @Inject constructor(
             )
 
     init {
+        // 合适条件时注册 hidApp
         coroutineScope.launch {
             val registerSuggestion = combine(
                 hidDeviceFlow,
@@ -164,43 +171,16 @@ class AndroidBluetoothRepository @Inject constructor(
             }
         }
 
-        coroutineScope.launch {
-            hidEventsFlow.filterIsInstance<BluetoothHidDeviceEvent.ConnectionStateChanged>().collect {
-                _lastSession.value?.let { currentSession ->
-                    if (it.device.address == currentSession.device.address) {
-                        val connectionState = when (it.state) {
-                            BluetoothProfile.STATE_CONNECTED -> BluetoothConnectionState.CONNECTED
-                            BluetoothProfile.STATE_CONNECTING -> BluetoothConnectionState.CONNECTING
-                            BluetoothProfile.STATE_DISCONNECTED -> BluetoothConnectionState.DISCONNECTED
-                            else -> BluetoothConnectionState.DISCONNECTED
-                        }
-                        currentSession.updateState(connectionState)
-                    }
-                }
-            }
-        }
-
+        // 注册后尝试重连
         coroutineScope.launch {
             isRegistered.collect { registered ->
-                Log.d(TAG, "registered $registered")
                 if (registered) {
-                    _lastSession.value?.let { lastSession ->
+                    lastConnectSession?.let { lastSession ->
                         @Suppress("MissingPermission")
-                        connect(lastSession.device)
+                        runCatching { connect(lastSession.device) }
+                            .onFailure { Log.e(TAG, "reconnect failed", it) }
                     }
                 }
-            }
-        }
-
-        coroutineScope.launch {
-            hidDeviceFlow.collect {
-                Log.d(TAG, "hidDeviceFlow $it")
-            }
-        }
-
-        coroutineScope.launch {
-            hidEventsFlow.collect {
-                Log.d(TAG, "hidEventsFlow $it")
             }
         }
     }
@@ -211,51 +191,12 @@ class AndroidBluetoothRepository @Inject constructor(
         return hidDeviceFlow.filterNotNull().first()
     }
 
-    private class BluetoothConnectSessionImpl(
-        device: AndroidBluetoothDevice,
-        private val hidProxy: BluetoothHidDevice
-    ) : BluetoothConnectSession(device) {
-        private val originalDevice = device.originalData
-
-        private val _state = MutableStateFlow(BluetoothConnectionState.CONNECTING)
-        override val state = _state.asStateFlow()
-
-        init {
-            @SuppressLint("MissingPermission")
-            val result = hidProxy.connect(originalDevice)
-            if (!result) {
-                Log.e(TAG, "hidProxy connect failed")
-                _state.value = BluetoothConnectionState.DISCONNECTED
-            }
-        }
-
-        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-        override fun sendReport(report: ByteArray) {
-            require(_state.value == BluetoothConnectionState.CONNECTED)
-            hidProxy.sendReport(originalDevice, 0, report)
-        }
-
-        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-        override fun close() {
-            if (_state.value != BluetoothConnectionState.DISCONNECTED) {
-                val result = hidProxy.disconnect(originalDevice)
-                if (!result) Log.e(TAG, "hidProxy disconnect failed")
-                _state.value = BluetoothConnectionState.DISCONNECTED
-            }
-        }
-
-        fun updateState(state: BluetoothConnectionState) {
-            _state.value = state
-        }
-    }
-
-    private var _lastSession = MutableStateFlow<BluetoothConnectSessionImpl?>(null)
-    override val lastSession: StateFlow<BluetoothConnectSession?> = _lastSession.asStateFlow()
+    private var lastConnectSession: AndroidBluetoothConnectSession? = null
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override suspend fun connect(device: BluetoothDevice): BluetoothConnectSession {
         val device = device as AndroidBluetoothDevice
-        _lastSession.value?.let { currentSession ->
+        lastConnectSession?.let { currentSession ->
             if (device == currentSession.device &&
                 currentSession.state.value != BluetoothConnectionState.DISCONNECTED
             ) {
@@ -279,9 +220,14 @@ class AndroidBluetoothRepository @Inject constructor(
             throw IllegalStateException("Bluetooth HID registration timed out", e)
         }
 
-        val newSession = BluetoothConnectSessionImpl(device, hidProxy)
+        val newSession = AndroidBluetoothConnectSession(
+            coroutineScope = coroutineScope,
+            device = device,
+            hidProxy = hidProxy,
+            connectionStateChangedEventFlow = hidEventsFlow.filterIsInstance()
+        )
 
-        _lastSession.value = newSession
+        lastConnectSession = newSession
         return newSession
     }
 

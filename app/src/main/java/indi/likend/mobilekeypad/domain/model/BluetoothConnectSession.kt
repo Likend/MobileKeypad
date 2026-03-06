@@ -4,7 +4,7 @@ import indi.likend.mobilekeypad.domain.utils.KeyboardHidReportBuilder
 import java.io.Closeable
 import kotlinx.coroutines.flow.StateFlow
 
-abstract class BluetoothConnectSession(val device: BluetoothDevice) : Closeable {
+abstract class BluetoothConnectSession(open val device: BluetoothDevice) : Closeable {
     abstract val state: StateFlow<BluetoothConnectionState>
 
     protected abstract fun sendReport(report: ByteArray)

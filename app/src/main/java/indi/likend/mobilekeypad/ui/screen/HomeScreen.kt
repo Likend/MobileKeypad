@@ -60,7 +60,7 @@ import indi.likend.mobilekeypad.ui.previewKeypadLayouts
 @Composable
 fun HomeScreen(
     navController: NavHostController,
-    connectionState: ConnectionState = ConnectionState.Unconnected,
+    connectionState: ConnectionState = ConnectionState.Disconnected,
     onClickConnectionButton: () -> Unit = {},
     keypadLayouts: List<Pair<String, KeypadLayout>>,
     selectedTab: Int = 0,
@@ -130,7 +130,7 @@ fun HomeScreen(
 @Composable
 private fun HomeScreenTopBar(
     navController: NavHostController,
-    connectionState: ConnectionState = ConnectionState.Unconnected,
+    connectionState: ConnectionState = ConnectionState.Disconnected,
     onClickConnectionButton: () -> Unit = {},
     showTitle: Boolean = true
 ) {
@@ -210,7 +210,7 @@ private fun PreviewHomeScreenTemplate(connectionState: ConnectionState) {
 @Composable
 @DeviceResponsivePreviews
 private fun PreviewHomeScreenUnconnected() {
-    PreviewHomeScreenTemplate(ConnectionState.Unconnected)
+    PreviewHomeScreenTemplate(ConnectionState.Disconnected)
 }
 
 @Composable
@@ -230,7 +230,7 @@ private val ConnectionState.iconVector
         is ConnectionState.Connected -> Icons.Default.Link
 
         is ConnectionState.Connecting,
-        is ConnectionState.Unconnected -> Icons.Default.LinkOff
+        is ConnectionState.Disconnected -> Icons.Default.LinkOff
 
         is ConnectionState.PermissionRequire -> Icons.Default.Warning
 
@@ -243,7 +243,7 @@ private val ConnectionState.buttonColors
         is ConnectionState.Connected -> ButtonDefaults.filledTonalButtonColors()
 
         is ConnectionState.Connecting,
-        is ConnectionState.Unconnected -> ButtonDefaults.buttonColors()
+        is ConnectionState.Disconnected -> ButtonDefaults.buttonColors()
 
         is ConnectionState.PermissionRequire,
         is ConnectionState.BluetoothUnsupported,
@@ -259,7 +259,7 @@ private val ConnectionState.buttonText
     @Composable get() = when (this) {
         is ConnectionState.Connected -> device.name
         is ConnectionState.Connecting -> stringResource(R.string.connection_state_connecting)
-        is ConnectionState.Unconnected -> stringResource(R.string.connection_unconnected)
+        is ConnectionState.Disconnected -> stringResource(R.string.connection_unconnected)
         is ConnectionState.PermissionRequire -> stringResource(R.string.connection_permission_require)
         is ConnectionState.BluetoothUnsupported -> stringResource(R.string.connection_bluetooth_unsupported)
         is ConnectionState.BluetoothTurnedOff -> stringResource(R.string.connection_bluetooth_turn_on)

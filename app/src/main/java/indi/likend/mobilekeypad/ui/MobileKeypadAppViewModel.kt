@@ -7,13 +7,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import indi.likend.mobilekeypad.R
+import indi.likend.mobilekeypad.domain.model.BluetoothConnectSession
 import indi.likend.mobilekeypad.domain.model.BluetoothConnectionState
 import indi.likend.mobilekeypad.domain.model.BluetoothDevice
 import indi.likend.mobilekeypad.domain.model.BluetoothScanSession
 import indi.likend.mobilekeypad.domain.repository.BluetoothRepository
 import indi.likend.mobilekeypad.utils.combineStates
 import indi.likend.mobilekeypad.utils.mapState
-import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,36 +23,74 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class MobileKeypadAppViewModel @Inject constructor(
     application: Application,
     private val repository: BluetoothRepository
 ) : AndroidViewModel(application) {
-    val pairedDevices = repository.pairedDevices
+    val pairedDevices: StateFlow<List<BluetoothDevice>> = repository.pairedDevices
 
-    val lastConnectedDevice: StateFlow<BluetoothDevice?> = repository.lastSession.mapState { it?.device }
+    val hasPermission = MutableStateFlow(false)
 
-    val hasPermissionStateFlow = MutableStateFlow(false)
+    private val lastConnectSession = MutableStateFlow<BluetoothConnectSession?>(null)
+    val lastConnectedDevice = lastConnectSession.mapState { it?.device }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val internalConnectionStateFlow: StateFlow<ConnectionState.Valid> =
-        repository.lastSession.flatMapLatest { it?.state ?: flowOf(BluetoothConnectionState.DISCONNECTED) }.map {
+    private val internalConnectionState: StateFlow<ConnectionState.Valid> =
+        lastConnectSession.flatMapLatest { it?.state ?: flowOf(BluetoothConnectionState.DISCONNECTED) }.map {
             when (it) {
                 BluetoothConnectionState.CONNECTED -> ConnectionState.Connected(lastConnectedDevice.value!!)
                 BluetoothConnectionState.CONNECTING -> ConnectionState.Connecting
-                BluetoothConnectionState.DISCONNECTED -> ConnectionState.Unconnected
+                BluetoothConnectionState.DISCONNECTED -> ConnectionState.Disconnected
             }
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
-            initialValue = ConnectionState.Unconnected
+            initialValue = ConnectionState.Disconnected
         )
 
+    fun connect(device: BluetoothDevice) {
+        viewModelScope.launch {
+            lastConnectSession.value = repository.connect(device)
+        }
+    }
+
+    fun disconnect() {
+        lastConnectSession.value?.close()
+    }
+
+    fun onKeyDown(scanCode: Int) {
+        lastConnectSession.value?.onKeyDown(scanCode)
+    }
+
+    fun onKeyUp(scanCode: Int) {
+        lastConnectSession.value?.onKeyUp(scanCode)
+    }
+
+    private val lastScanSession = MutableStateFlow<BluetoothScanSession?>(null)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val availableDevices: StateFlow<List<BluetoothDevice>> =
+        lastScanSession.flatMapLatest { it?.devices ?: flowOf(emptyList()) }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = emptyList()
+        )
+
+    fun startScanning() {
+        lastScanSession.value = repository.startScan()
+    }
+
+    fun stopScanning() {
+        lastScanSession.value?.close()
+    }
+
     val connectionState: StateFlow<ConnectionState> = combineStates(
-        hasPermissionStateFlow,
+        hasPermission,
         repository.isBluetoothEnable,
-        internalConnectionStateFlow
+        internalConnectionState
     ) { hasPermission, isBluetoothEnabled, internalConnectionState ->
         when {
             !hasPermission -> ConnectionState.PermissionRequire
@@ -77,48 +115,11 @@ class MobileKeypadAppViewModel @Inject constructor(
 
                     is ConnectionState.Connecting -> Unit
 
-                    is ConnectionState.Unconnected -> Unit
+                    is ConnectionState.Disconnected -> Unit
                 }
             }
         }
     }
-
-    fun connect(device: BluetoothDevice) {
-        viewModelScope.launch {
-            repository.connect(device)
-        }
-    }
-
-    fun disconnect() {
-        repository.lastSession.value?.close()
-    }
-
-    fun onKeyDown(scanCode: Int) {
-        repository.lastSession.value?.onKeyDown(scanCode)
-    }
-
-    fun onKeyUp(scanCode: Int) {
-        repository.lastSession.value?.onKeyUp(scanCode)
-    }
-
-    private var lastScanSession = MutableStateFlow<BluetoothScanSession?>(null)
-
-    fun startScanning() {
-        lastScanSession.value = repository.startScan()
-    }
-
-    fun stopScanning() {
-        lastScanSession.value?.close()
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val availableDevices: StateFlow<List<BluetoothDevice>> =
-        lastScanSession.flatMapLatest { it?.devices ?: flowOf(emptyList()) }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.Eagerly,
-                initialValue = emptyList()
-            )
 
     companion object {
         val permissionsToRequest = buildList {
@@ -140,7 +141,7 @@ sealed interface ConnectionState {
 
     data class Connected(val device: BluetoothDevice) : Valid
     object Connecting : Valid
-    object Unconnected : Valid
+    object Disconnected : Valid
     object PermissionRequire : Invalid
     object BluetoothUnsupported : Invalid
     object BluetoothTurnedOff : Invalid

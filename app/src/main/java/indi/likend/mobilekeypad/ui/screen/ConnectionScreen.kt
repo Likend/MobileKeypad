@@ -141,7 +141,7 @@ fun ConnectionScreen(
 @Composable
 fun PreviewConnectionScreenUnconnected() {
     ConnectionScreen(
-        connectionState = ConnectionState.Unconnected
+        connectionState = ConnectionState.Disconnected
     )
 }
 
@@ -202,7 +202,7 @@ private fun PreviewStatusCardConnecting() {
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_NO)
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
 private fun PreviewStatusCardUnconnected() {
-    MobileKeypadTheme { StatusCard(ConnectionState.Unconnected) }
+    MobileKeypadTheme { StatusCard(ConnectionState.Disconnected) }
 }
 
 @Composable
@@ -285,7 +285,7 @@ private val ConnectionState.Valid.cardColors
             contentColor = CostumeColorScheme.onWarningContainer
         )
 
-        is ConnectionState.Unconnected -> CardDefaults.cardColors(
+        is ConnectionState.Disconnected -> CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     }
@@ -294,7 +294,7 @@ private val ConnectionState.Valid.statusText
     @Composable get() = when (this) {
         is ConnectionState.Connected -> stringResource(R.string.connection_connected_to_device, device.name)
         is ConnectionState.Connecting -> stringResource(R.string.connection_state_connecting)
-        is ConnectionState.Unconnected -> stringResource(R.string.connection_unconnected)
+        is ConnectionState.Disconnected -> stringResource(R.string.connection_unconnected)
     }
 
 private val ConnectionState.Valid.descriptionText

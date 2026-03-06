@@ -44,7 +44,7 @@ fun MobileKeypadApp(viewModel: MobileKeypadAppViewModel = hiltViewModel()) {
         }
     }
     LaunchedEffect(permissionsState.allPermissionsGranted) {
-        viewModel.hasPermissionStateFlow.value = permissionsState.allPermissionsGranted
+        viewModel.hasPermission.value = permissionsState.allPermissionsGranted
     }
 
     val enableBluetoothLauncher =

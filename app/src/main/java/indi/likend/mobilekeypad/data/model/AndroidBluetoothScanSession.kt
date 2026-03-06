@@ -8,7 +8,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.util.Log
 import androidx.core.content.ContextCompat
-import dagger.hilt.android.qualifiers.ApplicationContext
 import indi.likend.mobilekeypad.data.utils.bluetooth.device
 import indi.likend.mobilekeypad.domain.model.BluetoothDevice
 import indi.likend.mobilekeypad.domain.model.BluetoothScanSession
@@ -39,7 +38,7 @@ import kotlinx.coroutines.flow.stateIn
  */
 @SuppressLint("MissingPermission")
 class AndroidBluetoothScanSession @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    private val context: Context,
     coroutineScope: CoroutineScope,
     private val adapter: BluetoothAdapter
 ) : BluetoothScanSession {
@@ -48,13 +47,6 @@ class AndroidBluetoothScanSession @Inject constructor(
      * 当需要停止扫描时，通过取消此 Job 来触发所有相关协程的取消。
      */
     private val sessionJob = SupervisorJob()
-
-    /**
-     * 专用于该扫描会话的 [CoroutineScope]。
-     * 它继承自传入的 [coroutineScope] 上下文，并添加了 [sessionJob] 作为父 `Job`，
-     * 以便统一管理该会话中的所有协程。
-     */
-    private val sessionScope = CoroutineScope(coroutineScope.coroutineContext + sessionJob)
 
     /**
      * 提供已发现蓝牙设备列表的 [StateFlow]。
@@ -82,15 +74,15 @@ class AndroidBluetoothScanSession @Inject constructor(
         }
         ContextCompat.registerReceiver(context, receiver, IntentFilter(ACTION), ContextCompat.RECEIVER_EXPORTED)
         val result = adapter.startDiscovery()
-        Log.d(TAG, "adapter.startDiscovery() $result adapter state: ${adapter.state}")
+        if (!result) Log.e(TAG, "adapter.startDiscovery() failed")
 
         awaitClose {
             val result = adapter.cancelDiscovery()
-            Log.d(TAG, "adapter.cancelDiscovery() $result")
+            if (!result) Log.e(TAG, "adapter.cancelDiscovery() failed")
             context.unregisterReceiver(receiver)
         }
     }.stateIn(
-        scope = sessionScope,
+        scope = CoroutineScope(coroutineScope.coroutineContext + sessionJob),
         started = SharingStarted.Eagerly,
         initialValue = emptyList()
     )

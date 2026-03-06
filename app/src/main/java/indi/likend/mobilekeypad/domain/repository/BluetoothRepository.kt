@@ -9,8 +9,6 @@ interface BluetoothRepository {
     val pairedDevices: StateFlow<List<BluetoothDevice>>
     val isBluetoothEnable: StateFlow<Boolean>
 
-    val lastSession: StateFlow<BluetoothConnectSession?>
-
     suspend fun connect(device: BluetoothDevice): BluetoothConnectSession
 
     fun startScan(): BluetoothScanSession

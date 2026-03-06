@@ -1,6 +1,5 @@
 package indi.likend.mobilekeypad.data.utils.bluetooth
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothHidDevice
@@ -8,16 +7,11 @@ import android.bluetooth.BluetoothHidDeviceAppQosSettings
 import android.bluetooth.BluetoothHidDeviceAppSdpSettings
 import android.bluetooth.BluetoothProfile
 import android.util.Log
-import androidx.annotation.RequiresPermission
 import java.io.Closeable
-import kotlin.run
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -166,7 +160,7 @@ class HidAppSession internal constructor(
     }
 
     companion object {
-        const val TAG = "HidAppSession"
+        private const val TAG = "HidAppSession"
     }
 }
 
@@ -222,54 +216,6 @@ class HidAppRegister(
     fun open(hidDevice: BluetoothHidDevice): HidAppSession = HidAppSession(hidDevice, sdp, inQos, outQos, callback)
 
     companion object {
-        const val TAG = "HidAppRegister"
+        private const val TAG = "HidAppRegister"
     }
 }
-//
-// @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-// fun BluetoothHidDevice.registerAppEventFlow(
-//    sdp: BluetoothHidDeviceAppSdpSettings,
-//    inQos: BluetoothHidDeviceAppQosSettings? = null,
-//    outQos: BluetoothHidDeviceAppQosSettings? = null
-// ): Flow<BluetoothHidDeviceEvent> = callbackFlow {
-//    val callback = object : BluetoothHidDevice.Callback() {
-//        override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {
-//            trySend(BluetoothHidDeviceEvent.AppStatusChanged(pluggedDevice, registered))
-//        }
-//
-//        override fun onConnectionStateChanged(device: BluetoothDevice, state: Int) {
-//            trySend(BluetoothHidDeviceEvent.ConnectionStateChanged(device, state))
-//        }
-//
-//        override fun onGetReport(device: BluetoothDevice, type: Byte, id: Byte, bufferSize: Int) {
-//            trySend(BluetoothHidDeviceEvent.GetReport(device, type, id, bufferSize))
-//        }
-//
-//        override fun onSetReport(device: BluetoothDevice, type: Byte, id: Byte, data: ByteArray) {
-//            trySend(BluetoothHidDeviceEvent.SetReport(device, type, id, data.copyOf()))
-//        }
-//
-//        override fun onSetProtocol(device: BluetoothDevice, protocol: Byte) {
-//            trySend(BluetoothHidDeviceEvent.SetProtocol(device, protocol))
-//        }
-//
-//        override fun onInterruptData(device: BluetoothDevice, reportId: Byte, data: ByteArray) {
-//            trySend(BluetoothHidDeviceEvent.InterruptData(device, reportId, data.copyOf()))
-//        }
-//
-//        override fun onVirtualCableUnplug(device: BluetoothDevice) {
-//            trySend(BluetoothHidDeviceEvent.VirtualCableUnplug(device))
-//        }
-//    }
-//
-//    val result = registerApp(sdp, inQos, outQos, { it.run() }, callback)
-//    if (!result) {
-//        close(IllegalStateException("Failed to register HID APP proxy"))
-//        return@callbackFlow
-//    }
-//
-//    awaitClose {
-//        unregisterApp()
-//        Log.d("BluetoothHidDevice.registerAppEventFlow", "unregisterApp called")
-//    }
-// }
