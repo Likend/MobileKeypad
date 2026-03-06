@@ -113,11 +113,12 @@ class MobileKeypadAppViewModel @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val availableDevices: StateFlow<List<BluetoothDevice>> =
-        lastScanSession.flatMapLatest { it?.devices ?: flowOf(emptyList()) }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = emptyList()
-        )
+        lastScanSession.flatMapLatest { it?.devices ?: flowOf(emptyList()) }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = emptyList()
+            )
 
     companion object {
         val permissionsToRequest = buildList {
@@ -127,7 +128,7 @@ class MobileKeypadAppViewModel @Inject constructor(
                 add(Manifest.permission.BLUETOOTH_CONNECT)
             } else {
                 // Android 11 及以下需要位置权限才能扫描蓝牙
-                Manifest.permission.ACCESS_FINE_LOCATION
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
             }
         }
     }

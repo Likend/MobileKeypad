@@ -17,6 +17,7 @@ import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import indi.likend.mobilekeypad.data.model.AndroidBluetoothDevice
+import indi.likend.mobilekeypad.data.model.AndroidBluetoothScanSession
 import indi.likend.mobilekeypad.data.utils.ActivityStateMonitor
 import indi.likend.mobilekeypad.data.utils.bluetooth.BluetoothHidDeviceEvent
 import indi.likend.mobilekeypad.data.utils.bluetooth.HidAppRegister
@@ -25,7 +26,6 @@ import indi.likend.mobilekeypad.data.utils.bluetooth.adapterState
 import indi.likend.mobilekeypad.data.utils.bluetooth.device
 import indi.likend.mobilekeypad.data.utils.bluetooth.deviceBondState
 import indi.likend.mobilekeypad.data.utils.bluetooth.getProfileProxyFlow
-import indi.likend.mobilekeypad.di.qualifiers.ForegroundStrategy
 import indi.likend.mobilekeypad.domain.model.BluetoothConnectSession
 import indi.likend.mobilekeypad.domain.model.BluetoothConnectionState
 import indi.likend.mobilekeypad.domain.model.BluetoothDevice
@@ -35,7 +35,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,7 +62,6 @@ class AndroidBluetoothRepository @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val adapter: BluetoothAdapter,
     private val coroutineScope: CoroutineScope,
-    @ForegroundStrategy lifecycleSharingStarted: SharingStarted,
     private val activityStateMonitor: ActivityStateMonitor
 ) : BluetoothRepository {
     private sealed interface BluetoothEvent {
@@ -90,7 +88,7 @@ class AndroidBluetoothRepository @Inject constructor(
             addAction(ACTION_BOND_STATE_CHANGED)
             addAction(ACTION_STATE_CHANGED)
         }
-        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
         awaitClose {
             context.unregisterReceiver(receiver)
         }
@@ -111,54 +109,15 @@ class AndroidBluetoothRepository @Inject constructor(
     override val isBluetoothEnable: StateFlow<Boolean> =
         bluetoothEventsFlow.filterIsInstance<BluetoothEvent.AdapterStateChanged>()
             .filter { event -> event.state == BluetoothAdapter.STATE_ON || event.state == BluetoothAdapter.STATE_OFF }
-            .map { event -> event.state == BluetoothAdapter.STATE_ON }.stateIn(
+            .map { event -> event.state == BluetoothAdapter.STATE_ON }
+            .stateIn(
                 scope = coroutineScope,
                 started = SharingStarted.Eagerly,
                 initialValue = adapter.isEnabled
             )
 
     @SuppressLint("MissingPermission")
-    override fun startScan(): BluetoothScanSession {
-        val sessionJob = SupervisorJob()
-        val sessionScope = CoroutineScope(coroutineScope.coroutineContext + sessionJob)
-
-        val action = android.bluetooth.BluetoothDevice.ACTION_FOUND
-
-        return object : BluetoothScanSession {
-            override val devices: StateFlow<List<BluetoothDevice>> = callbackFlow {
-                val foundedDevicesSet = LinkedHashSet<AndroidBluetoothDevice>()
-                val receiver = object : BroadcastReceiver() {
-                    override fun onReceive(context: Context, intent: Intent) {
-                        require(intent.action == action)
-                        val device = intent.device
-                        foundedDevicesSet.add(AndroidBluetoothDevice(device))
-                        trySend(foundedDevicesSet.toList())
-                    }
-                }
-                ContextCompat.registerReceiver(
-                    context,
-                    receiver,
-                    IntentFilter(action),
-                    ContextCompat.RECEIVER_NOT_EXPORTED
-                )
-                adapter.startDiscovery()
-
-                awaitClose {
-                    adapter.cancelDiscovery()
-                    context.unregisterReceiver(receiver)
-                }
-            }.stateIn(
-                scope = sessionScope,
-                started = SharingStarted.Eagerly,
-                initialValue = emptyList()
-            )
-
-            // 核心：取消 Job -> 导致 sessionScope 取消 -> 导致 callbackFlow 的 awaitClose 触发
-            override fun close() {
-                sessionJob.cancel()
-            }
-        }
-    }
+    override fun startScan(): BluetoothScanSession = AndroidBluetoothScanSession(context, coroutineScope, adapter)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val hidDeviceFlow: SharedFlow<BluetoothHidDevice?> = isBluetoothEnable.filter { it }.flatMapLatest {

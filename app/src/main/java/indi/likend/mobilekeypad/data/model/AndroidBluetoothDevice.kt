@@ -8,7 +8,7 @@ import indi.likend.mobilekeypad.domain.model.BluetoothDeviceType
 @SuppressLint("MissingPermission")
 class AndroidBluetoothDevice(val originalData: android.bluetooth.BluetoothDevice) :
     BluetoothDevice(
-        name = originalData.name,
+        name = originalData.name ?: originalData.address,
         address = originalData.address,
         deviceType = originalData.bluetoothClass.toBluetoothDeviceType
     )
