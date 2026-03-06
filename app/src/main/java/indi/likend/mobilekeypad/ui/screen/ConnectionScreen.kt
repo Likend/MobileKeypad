@@ -3,14 +3,16 @@ package indi.likend.mobilekeypad.ui.screen
 import android.annotation.SuppressLint
 import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.CheckCircle
@@ -19,12 +21,12 @@ import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Laptop
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.Watch
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -32,6 +34,8 @@ import androidx.compose.runtime.DisposableEffectResult
 import androidx.compose.runtime.DisposableEffectScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,6 +47,7 @@ import indi.likend.mobilekeypad.domain.model.BluetoothDevice
 import indi.likend.mobilekeypad.domain.model.BluetoothDeviceType
 import indi.likend.mobilekeypad.ui.ConnectionState
 import indi.likend.mobilekeypad.ui.component.CostumeScaffold
+import indi.likend.mobilekeypad.ui.component.SessionTitle
 import indi.likend.mobilekeypad.ui.previewDevice
 import indi.likend.mobilekeypad.ui.theme.CostumeColorScheme
 import indi.likend.mobilekeypad.ui.theme.MobileKeypadTheme
@@ -59,80 +64,50 @@ fun ConnectionScreen(
 ) {
     DisposableEffect(Unit) { disposableEffect() }
 
-    CostumeScaffold(title = stringResource(R.string.connection_heading)) {
-        StatusCard(connectionState)
+    val connectedDevice: BluetoothDevice? =
+        connectionState.let { if (it is ConnectionState.Connected) it.device else null }
 
-        Spacer(modifier = Modifier.height(12.dp))
+    CostumeScaffold(title = stringResource(R.string.connection_heading)) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            item { StatusCard(connectionState) }
 
-        if (lastConnectedDevice == null && pairedDevices.isEmpty() && availableDevices.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.connection_not_found))
-            }
-        }
-
-        lastConnectedDevice?.let { device ->
-            Text(
-                text = stringResource(R.string.connection_history_records),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            DeviceRow(
-                device = device,
-                isConnected =
-                    connectionState is ConnectionState.Connected &&
-                        device.address == connectionState.device.address,
-                onClick = { onConnectDevice(device) }
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        if (!pairedDevices.isEmpty()) {
-            Text(
-                text = stringResource(R.string.connection_paired_devices),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            pairedDevices.forEach { device ->
-                DeviceRow(
-                    device = device,
-                    isConnected =
-                        connectionState is ConnectionState.Connected &&
-                            device.address == connectionState.device.address,
-                    onClick = { onConnectDevice(device) }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+            if (lastConnectedDevice == null && pairedDevices.isEmpty() && availableDevices.isEmpty()) {
+                item {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(stringResource(R.string.connection_not_found), modifier = Modifier.padding(16.dp))
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-        }
-
-        if (!availableDevices.isEmpty()) {
-            Text(
-                text = stringResource(R.string.connection_available_devices),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            availableDevices.forEach { device ->
-                DeviceRow(
-                    device = device,
-                    isConnected =
-                        connectionState is ConnectionState.Connected &&
-                            device.address == connectionState.device.address,
-                    onClick = { onConnectDevice(device) }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+            fun deviceList(devices: List<BluetoothDevice>) {
+                itemsIndexed(devices) { index, device ->
+                    if (index > 0) Spacer(modifier = Modifier.height(12.dp))
+                    DeviceRow(
+                        device = device,
+                        isConnected = connectedDevice?.let { it == device } ?: false,
+                        onClick = { onConnectDevice(device) }
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            lastConnectedDevice?.let { device ->
+                item { SessionTitle(stringResource(R.string.connection_history_records)) }
+                deviceList(listOf(device))
+            }
+
+            if (!pairedDevices.isEmpty()) {
+                item { SessionTitle(stringResource(R.string.connection_paired_devices)) }
+                deviceList(pairedDevices)
+            }
+
+            if (!availableDevices.isEmpty()) {
+                item { SessionTitle(stringResource(R.string.connection_available_devices)) }
+                deviceList(availableDevices)
+            }
         }
     }
 }
@@ -168,27 +143,28 @@ fun PreviewConnectionScreenConnecting() {
 
 @Composable
 fun StatusCard(connectionState: ConnectionState.Valid) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 16.dp),
-        colors = connectionState.cardColors
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    val colors = connectionState.cardColors
+    ListItem(
+        headlineContent = { Text(text = connectionState.statusText, fontWeight = FontWeight.Medium) },
+        supportingContent = { Text(text = connectionState.descriptionText) },
+        leadingContent = {
             Icon(
                 imageVector = connectionState.iconVector,
                 contentDescription = null,
                 tint = LocalContentColor.current.copy(alpha = 0.7f)
             )
-            Column(modifier = Modifier.padding(start = 12.dp)) {
-                Text(text = connectionState.statusText, fontWeight = FontWeight.Medium)
-                Text(text = connectionState.descriptionText, fontSize = 12.sp)
-            }
-        }
-    }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(MaterialTheme.shapes.medium),
+        colors = ListItemDefaults.colors(
+            containerColor = colors.containerColor,
+            headlineColor = colors.contentColor,
+            supportingColor = colors.contentColor,
+            leadingIconColor = colors.contentColor
+        )
+    )
 }
 
 @Composable
@@ -214,56 +190,63 @@ private fun PreviewStatusCardConnected() {
 
 @Composable
 fun DeviceRow(device: BluetoothDevice, isConnected: Boolean, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = MaterialTheme.shapes.medium,
-        tonalElevation = if (isConnected) 4.dp else 1.dp,
-        border = if (isConnected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val contentColor = if (isConnected) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                LocalContentColor.current
-            }
+    val contentColor = if (isConnected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        Color.Unspecified
+    }
+
+    ListItem(
+        headlineContent = {
+            Text(
+                text = device.name,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.MiddleEllipsis
+            )
+        },
+        supportingContent = { Text(text = device.address) },
+        leadingContent = {
             Icon(
                 imageVector = device.deviceType.iconVector,
-                contentDescription = null,
-                tint = contentColor.copy(alpha = 0.7f)
+                contentDescription = null
             )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp)
-            ) {
-                Text(
-                    text = device.name,
-                    color = contentColor,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.MiddleEllipsis
-                )
-                Text(text = device.address, color = contentColor, style = MaterialTheme.typography.bodySmall)
-            }
+        },
+        trailingContent = {
             if (isConnected) {
                 Text(
-                    "当前连接",
-                    color = MaterialTheme.colorScheme.primary,
+                    text = stringResource(R.string.connection_current),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(start = 12.dp)
                 )
             }
-        }
-    }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .applyIf(isConnected) {
+                border(
+                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                    shape = MaterialTheme.shapes.medium
+                )
+            }
+            .clickable(enabled = true, onClick = onClick),
+        colors = ListItemDefaults.colors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            headlineColor = contentColor,
+            supportingColor = contentColor,
+            leadingIconColor = contentColor,
+            trailingIconColor = contentColor
+        ),
+        tonalElevation = if (isConnected) 4.dp else 1.dp
+    )
 }
 
-private val BluetoothDeviceType.iconVector
+inline fun <T> T.applyIf(condition: Boolean, block: T.() -> T): T = if (condition) block() else this
+
+private inline val BluetoothDeviceType.iconVector
     get() = when (this) {
         BluetoothDeviceType.COMPUTER -> Icons.Default.Laptop
         BluetoothDeviceType.PHONE -> Icons.Default.Smartphone
@@ -273,7 +256,7 @@ private val BluetoothDeviceType.iconVector
         else -> Icons.Default.Bluetooth
     }
 
-private val ConnectionState.Valid.cardColors
+private inline val ConnectionState.Valid.cardColors
     @Composable get() = when (this) {
         is ConnectionState.Connected -> CardDefaults.cardColors(
             containerColor = CostumeColorScheme.successContainer,
@@ -290,20 +273,20 @@ private val ConnectionState.Valid.cardColors
         )
     }
 
-private val ConnectionState.Valid.statusText
+private inline val ConnectionState.Valid.statusText
     @Composable get() = when (this) {
         is ConnectionState.Connected -> stringResource(R.string.connection_connected_to_device, device.name)
         is ConnectionState.Connecting -> stringResource(R.string.connection_state_connecting)
         is ConnectionState.Disconnected -> stringResource(R.string.connection_unconnected)
     }
 
-private val ConnectionState.Valid.descriptionText
+private inline val ConnectionState.Valid.descriptionText
     @Composable get() = when (this) {
         is ConnectionState.Connected -> stringResource(R.string.connection_connected_description)
         else -> stringResource(R.string.connection_unconnected_description)
     }
 
-private val ConnectionState.Valid.iconVector
+private inline val ConnectionState.Valid.iconVector
     get() = when (this) {
         is ConnectionState.Connected -> Icons.Default.CheckCircle
         else -> Icons.Default.Bluetooth

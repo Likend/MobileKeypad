@@ -15,4 +15,5 @@
     <string name="connection_history_records">历史记录</string>
     <string name="connection_paired_devices">已配对设备</string>
     <string name="connection_available_devices">可用设备</string>
+    <string name="connection_current">当前连接</string>
 </resources>
