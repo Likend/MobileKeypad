@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.util.Log
 import androidx.core.content.ContextCompat
+import dagger.hilt.android.qualifiers.ApplicationContext
 import indi.likend.mobilekeypad.data.utils.bluetooth.device
 import indi.likend.mobilekeypad.domain.model.BluetoothDevice
 import indi.likend.mobilekeypad.domain.model.BluetoothScanSession
@@ -38,7 +39,7 @@ import kotlinx.coroutines.flow.stateIn
  */
 @SuppressLint("MissingPermission")
 class AndroidBluetoothScanSession @Inject constructor(
-    private val context: Context,
+    @param:ApplicationContext private val context: Context,
     coroutineScope: CoroutineScope,
     private val adapter: BluetoothAdapter
 ) : BluetoothScanSession {

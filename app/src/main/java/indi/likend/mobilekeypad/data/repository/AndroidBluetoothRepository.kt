@@ -29,9 +29,9 @@ import indi.likend.mobilekeypad.data.utils.bluetooth.getProfileProxyFlow
 import indi.likend.mobilekeypad.domain.model.BluetoothConnectSession
 import indi.likend.mobilekeypad.domain.model.BluetoothConnectionState
 import indi.likend.mobilekeypad.domain.model.BluetoothDevice
-import indi.likend.mobilekeypad.domain.model.BluetoothScanSession
 import indi.likend.mobilekeypad.domain.repository.BluetoothRepository
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -61,7 +61,8 @@ class AndroidBluetoothRepository @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val adapter: BluetoothAdapter,
     private val coroutineScope: CoroutineScope,
-    private val activityStateMonitor: ActivityStateMonitor
+    private val activityStateMonitor: ActivityStateMonitor,
+    private val scanSessionProvider: Provider<AndroidBluetoothScanSession>
 ) : BluetoothRepository {
     private sealed interface BluetoothEvent {
         data class AdapterStateChanged(val state: Int) : BluetoothEvent
@@ -115,8 +116,7 @@ class AndroidBluetoothRepository @Inject constructor(
             )
 
     @SuppressLint("MissingPermission")
-    override fun startScan(): BluetoothScanSession =
-        AndroidBluetoothScanSession(context = context, coroutineScope = coroutineScope, adapter = adapter)
+    override fun startScan(): AndroidBluetoothScanSession = scanSessionProvider.get()
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val hidDeviceFlow: SharedFlow<BluetoothHidDevice?> =
