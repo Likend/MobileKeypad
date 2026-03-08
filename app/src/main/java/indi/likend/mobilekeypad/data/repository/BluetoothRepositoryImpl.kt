@@ -57,7 +57,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 
 @Singleton
-class AndroidBluetoothRepository @Inject constructor(
+class BluetoothRepositoryImpl @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val adapter: BluetoothAdapter,
     private val coroutineScope: CoroutineScope,

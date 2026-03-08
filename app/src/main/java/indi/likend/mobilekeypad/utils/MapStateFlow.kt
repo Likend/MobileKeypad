@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 @OptIn(ExperimentalForInheritanceCoroutinesApi::class)
-class DerivedStateFlow<T>(private val getValue: () -> T, private val flow: Flow<T>) : StateFlow<T> {
+private class DerivedStateFlow<T>(private val getValue: () -> T, private val flow: Flow<T>) : StateFlow<T> {
     override val value: T
         get() = getValue()
 

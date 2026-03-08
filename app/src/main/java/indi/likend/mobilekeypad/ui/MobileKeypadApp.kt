@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.IntRange
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,15 +28,19 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import indi.likend.mobilekeypad.domain.model.DarkTheme
 import indi.likend.mobilekeypad.ui.screen.ConnectionScreen
 import indi.likend.mobilekeypad.ui.screen.HomeScreen
 import indi.likend.mobilekeypad.ui.screen.settings.MainSettingScreen
+import indi.likend.mobilekeypad.ui.screen.settings.SettingsViewModel
 import indi.likend.mobilekeypad.ui.theme.MobileKeypadTheme
 
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun MobileKeypadApp(viewModel: MobileKeypadAppViewModel = hiltViewModel()) {
+fun MobileKeypadApp() {
+    val viewModel: MobileKeypadAppViewModel = hiltViewModel()
+
     val navController = rememberNavController()
 
     val permissionsState = rememberMultiplePermissionsState(MobileKeypadAppViewModel.permissionsToRequest) { result ->
@@ -61,7 +66,16 @@ fun MobileKeypadApp(viewModel: MobileKeypadAppViewModel = hiltViewModel()) {
 
     HandleUiEvent()
 
-    MobileKeypadTheme {
+    val settings: SettingsViewModel = hiltViewModel()
+    val darkTheme = when (settings.darkTheme.value) {
+        DarkTheme.On -> true
+        DarkTheme.Off -> false
+        DarkTheme.FollowSystem -> isSystemInDarkTheme()
+    }
+    val pureBlack by settings.pureBlack
+    val enableDynamicTheme by settings.enableDynamicTheme
+
+    MobileKeypadTheme(darkTheme = darkTheme, dynamicColor = enableDynamicTheme, pureBlack = pureBlack) {
         NavHost(
             navController = navController,
             startDestination = Route.Home,
