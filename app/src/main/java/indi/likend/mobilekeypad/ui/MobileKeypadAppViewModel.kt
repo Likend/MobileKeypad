@@ -14,6 +14,7 @@ import indi.likend.mobilekeypad.domain.model.BluetoothScanSession
 import indi.likend.mobilekeypad.domain.repository.BluetoothRepository
 import indi.likend.mobilekeypad.utils.combineStates
 import indi.likend.mobilekeypad.utils.mapState
+import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,7 +24,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @HiltViewModel
 class MobileKeypadAppViewModel @Inject constructor(
@@ -62,11 +62,15 @@ class MobileKeypadAppViewModel @Inject constructor(
     }
 
     fun onKeyDown(scanCode: Int) {
-        lastConnectSession.value?.onKeyDown(scanCode)
+        if (internalConnectionState.value is ConnectionState.Connected) {
+            lastConnectSession.value!!.onKeyDown(scanCode)
+        }
     }
 
     fun onKeyUp(scanCode: Int) {
-        lastConnectSession.value?.onKeyUp(scanCode)
+        if (internalConnectionState.value is ConnectionState.Connected) {
+            lastConnectSession.value!!.onKeyUp(scanCode)
+        }
     }
 
     private val lastScanSession = MutableStateFlow<BluetoothScanSession?>(null)
@@ -146,3 +150,5 @@ sealed interface ConnectionState {
     object BluetoothUnsupported : Invalid
     object BluetoothTurnedOff : Invalid
 }
+
+fun ConnectionState.connectedDevice(): BluetoothDevice? = if (this is ConnectionState.Connected) this.device else null

@@ -8,8 +8,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import indi.likend.mobilekeypad.domain.model.SettingItem
 import indi.likend.mobilekeypad.domain.repository.SettingsRepository
 import javax.inject.Inject
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 @HiltViewModel

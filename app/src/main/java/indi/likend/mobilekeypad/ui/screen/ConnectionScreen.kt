@@ -48,6 +48,7 @@ import indi.likend.mobilekeypad.domain.model.BluetoothDeviceType
 import indi.likend.mobilekeypad.ui.ConnectionState
 import indi.likend.mobilekeypad.ui.component.CostumeScaffold
 import indi.likend.mobilekeypad.ui.component.SessionTitle
+import indi.likend.mobilekeypad.ui.connectedDevice
 import indi.likend.mobilekeypad.ui.previewDevice
 import indi.likend.mobilekeypad.ui.theme.CostumeColorScheme
 import indi.likend.mobilekeypad.ui.theme.MobileKeypadTheme
@@ -64,8 +65,7 @@ fun ConnectionScreen(
 ) {
     DisposableEffect(Unit) { disposableEffect() }
 
-    val connectedDevice: BluetoothDevice? =
-        connectionState.let { if (it is ConnectionState.Connected) it.device else null }
+    val connectedDevice: BluetoothDevice? = connectionState.connectedDevice()
 
     CostumeScaffold(title = stringResource(R.string.connection_heading)) { innerPadding ->
         LazyColumn(
@@ -88,7 +88,7 @@ fun ConnectionScreen(
                     if (index > 0) Spacer(modifier = Modifier.height(12.dp))
                     DeviceRow(
                         device = device,
-                        isConnected = connectedDevice?.let { it == device } ?: false,
+                        isConnected = connectedDevice == device,
                         onClick = { onConnectDevice(device) }
                     )
                 }
@@ -114,7 +114,7 @@ fun ConnectionScreen(
 
 @Preview
 @Composable
-fun PreviewConnectionScreenUnconnected() {
+private fun PreviewConnectionScreenUnconnected() {
     ConnectionScreen(
         connectionState = ConnectionState.Disconnected
     )
@@ -122,7 +122,7 @@ fun PreviewConnectionScreenUnconnected() {
 
 @Preview
 @Composable
-fun PreviewConnectionScreenConnected() {
+private fun PreviewConnectionScreenConnected() {
     ConnectionScreen(
         connectionState = ConnectionState.Connected(previewDevice),
         lastConnectedDevice = previewDevice,
@@ -133,7 +133,7 @@ fun PreviewConnectionScreenConnected() {
 
 @Preview
 @Composable
-fun PreviewConnectionScreenConnecting() {
+private fun PreviewConnectionScreenConnecting() {
     ConnectionScreen(
         connectionState = ConnectionState.Connecting,
         pairedDevices = listOf(previewDevice, previewDevice),
@@ -142,7 +142,7 @@ fun PreviewConnectionScreenConnecting() {
 }
 
 @Composable
-fun StatusCard(connectionState: ConnectionState.Valid) {
+private fun StatusCard(connectionState: ConnectionState.Valid) {
     val colors = connectionState.cardColors
     ListItem(
         headlineContent = { Text(text = connectionState.statusText, fontWeight = FontWeight.Medium) },
@@ -189,7 +189,7 @@ private fun PreviewStatusCardConnected() {
 }
 
 @Composable
-fun DeviceRow(device: BluetoothDevice, isConnected: Boolean, onClick: () -> Unit) {
+private fun DeviceRow(device: BluetoothDevice, isConnected: Boolean, onClick: () -> Unit) {
     val contentColor = if (isConnected) {
         MaterialTheme.colorScheme.primary
     } else {
@@ -244,7 +244,7 @@ fun DeviceRow(device: BluetoothDevice, isConnected: Boolean, onClick: () -> Unit
     )
 }
 
-inline fun <T> T.applyIf(condition: Boolean, block: T.() -> T): T = if (condition) block() else this
+private inline fun <T> T.applyIf(condition: Boolean, block: T.() -> T): T = if (condition) block() else this
 
 private inline val BluetoothDeviceType.iconVector
     get() = when (this) {
